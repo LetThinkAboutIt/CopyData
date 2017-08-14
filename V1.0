@@ -1,0 +1,393 @@
+using System;
+using System.Collections.Generic;
+using System.Windows.Forms;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Diagnostics;
+
+namespace GetData
+{
+    public partial class Form1 : Form
+    {
+        public Form1()
+        {
+            InitializeComponent();
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+        public delegate bool EnumWindowProc(IntPtr hwnd, IntPtr lParam);
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool EnumChildWindows(IntPtr hwndParent, EnumWindowProc lpEnumFunc, IntPtr lParam);
+        [DllImport("user32.dll")]
+        public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, uint dwExtraInfo);
+        [DllImport("user32.dll")]
+        private static extern int SendMessage(IntPtr hwnd, int wMsg, uint wParam, uint lParam);
+        [DllImport("User32.dll")]
+        private static extern bool ShowWindowAsync(IntPtr hWnd, int cmdShow);
+        [DllImport("User32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+        [DllImport("user32.dll")]
+        static extern bool PostMessage(IntPtr hWnd, UInt32 Msg, int wParam, int lParam);
+        [DllImport("user32.dll")]
+        private static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
+        [DllImport("user32")]
+        public static extern IntPtr GetForegroundWindow();
+
+        //定義數值
+        const byte PageUpKey = 0x21;
+        const byte DownArrow = 0x28;
+        const byte KEYEVENTF_EXTENDEDKEY = 0x01;
+        const byte KEYEVENTF_KEYUP = 0x02;
+        const byte CtrlKey = 0x11;
+        const byte CKey = 0x43;
+        const byte EnterKey = 0x0D;
+        const byte TabKey = 0x09;
+        const byte QKey = 0x51;
+        const int WM_KEYDOWN = 0x100;
+        const int WM_KEYUP = 0x101;
+        byte VK_CONTROL = 0x11;
+        Thread getData;
+        Boolean tf1;
+        Boolean tf2;
+        Boolean tf3;
+        Boolean tf4;
+        Boolean tf5;
+        DateTime StartTime = new DateTime(1991, 1, 1, 6, 0, 0);
+        DateTime NowTime = DateTime.Now;
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+
+        }
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (getData.IsAlive)
+            {
+                getData.Abort();
+            }
+        }
+
+        private void GetData()
+        {
+            int strIndex = -1; //判斷小時值與現時小時值是否一樣的變數
+            int StopInt = 1; //限制迴變運行次數的變數
+            string[] CopiedHour = null;//複製文字分配後的陣列
+            string CpoiedText = ""; //儲存複製的文字的變數
+
+            //開始複製動作
+            IntPtr hwnd = FindWindow("TradingStationIIClass", "匯圖寶2.0");
+            List<IntPtr> hwnd1 = GetChildWindows(hwnd);
+            IntPtr hwnd2 = hwnd1[22];
+            // 透過ShowWindowAsync還原，以及SetForegroundWindow將程式至於前景
+            ShowWindowAsync(hwnd, 1);
+            SetForegroundWindow(hwnd2);
+            Thread.Sleep(200);
+            //按下鍵盤PagetUp鍵
+            keybd_event(PageUpKey, 0, KEYEVENTF_EXTENDEDKEY, 0);
+            //放開鍵盤PagetUp鍵
+            keybd_event(PageUpKey, 0, 0x02, 0);
+            Thread.Sleep(200);
+            //按下鍵盤下鍵
+            keybd_event(DownArrow, 0, KEYEVENTF_EXTENDEDKEY, 0);
+            //放開鍵盤下鍵
+            keybd_event(DownArrow, 0, 0x02, 0);
+            Thread.Sleep(200);
+            keybd_event(VK_CONTROL, 0, 0, 0);
+            keybd_event(0x43, 0, 0, 0); //Send the C key (43 is "C")
+            keybd_event(0x43, 0, KEYEVENTF_KEYUP, 0);
+            keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);// 'Left Control Up
+            Thread.Sleep(150);
+            IntPtr hwnd3 = FindWindow("#32770", "福匯亞洲交易平台II");
+            ShowWindowAsync(hwnd3, 1);
+            SetForegroundWindow(hwnd3);
+            Thread.Sleep(200);
+            //Thread.Sleep(200);
+            //按下鍵盤Tab鍵
+            keybd_event(TabKey, 0, KEYEVENTF_EXTENDEDKEY, 0);
+            //放開鍵盤Tab鍵
+            keybd_event(TabKey, 0, KEYEVENTF_KEYUP, 0);
+            //Thread.Sleep(200);
+            //按下鍵盤Tab鍵
+            keybd_event(TabKey, 0, KEYEVENTF_EXTENDEDKEY, 0);
+            //放開鍵盤Tab鍵
+            keybd_event(TabKey, 0, KEYEVENTF_KEYUP, 0);
+            //Thread.Sleep(200);
+            //按下鍵盤Enter鍵
+            keybd_event(EnterKey, 0, KEYEVENTF_EXTENDEDKEY, 0);
+            //放開鍵盤Enter鍵
+            keybd_event(EnterKey, 0, KEYEVENTF_KEYUP, 0);
+            Thread.Sleep(200);
+            //完成複製動作
+
+            //判斷剪貼簿是否有複製正確資料
+            if (Clipboard.GetDataObject() != null)//判斷剪貼簿上是否有資料，有則繼續
+            {
+                if (Clipboard.ContainsText()) //判断剪贴板上面是不是text文本，即字符
+                {
+                    CpoiedText = Clipboard.GetText();//利用GetText把文字取出
+                }
+                else
+                {
+                    do
+                    {
+                        //開始複製動作
+                        hwnd = FindWindow("TradingStationIIClass", "匯圖寶2.0");
+                        hwnd1 = GetChildWindows(hwnd);
+                        hwnd2 = hwnd1[22];
+                        // 透過ShowWindowAsync還原，以及SetForegroundWindow將程式至於前景
+                        ShowWindowAsync(hwnd, 1);
+                        SetForegroundWindow(hwnd2);
+                        Thread.Sleep(200);
+                        //按下鍵盤PagetUp鍵
+                        keybd_event(PageUpKey, 0, KEYEVENTF_EXTENDEDKEY, 0);
+                        //放開鍵盤PagetUp鍵
+                        keybd_event(PageUpKey, 0, 0x02, 0);
+                        Thread.Sleep(200);
+                        //Thread.Sleep(200);
+                        //按下鍵盤下鍵
+                        keybd_event(DownArrow, 0, KEYEVENTF_EXTENDEDKEY, 0);
+                        //放開鍵盤下鍵
+                        keybd_event(DownArrow, 0, 0x02, 0);
+                        Thread.Sleep(200);
+                        keybd_event(VK_CONTROL, 0, 0, 0);
+                        keybd_event(0x43, 0, 0, 0); //Send the C key (43 is "C")
+                        keybd_event(0x43, 0, KEYEVENTF_KEYUP, 0);
+                        keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);// 'Left Control Up
+                        hwnd3 = FindWindow("#32770", "福匯亞洲交易平台II");
+                        ShowWindowAsync(hwnd3, 1);
+                        SetForegroundWindow(hwnd3);
+                        Thread.Sleep(200);
+                        //按下鍵盤Tab鍵
+                        keybd_event(TabKey, 0, KEYEVENTF_EXTENDEDKEY, 0);
+                        //放開鍵盤Tab鍵
+                        keybd_event(TabKey, 0, KEYEVENTF_KEYUP, 0);
+                        //Thread.Sleep(200);
+                        //按下鍵盤Tab鍵
+                        keybd_event(TabKey, 0, KEYEVENTF_EXTENDEDKEY, 0);
+                        //放開鍵盤Tab鍵
+                        keybd_event(TabKey, 0, KEYEVENTF_KEYUP, 0);
+                        //Thread.Sleep(200);
+                        //按下鍵盤Enter鍵
+                        keybd_event(EnterKey, 0, KEYEVENTF_EXTENDEDKEY, 0);
+                        //放開鍵盤Enter鍵
+                        keybd_event(EnterKey, 0, KEYEVENTF_KEYUP, 0);
+                        //Thread.Sleep(200);
+                        //完成複製動作
+                        CpoiedText = Clipboard.GetText();//利用GetText把文字取出
+                        StopInt += 1;
+                    } while (!(Clipboard.ContainsText()) && StopInt < 6);
+                    if (!(Clipboard.ContainsText()));
+                    {
+                        StackTrace st = new StackTrace(true);
+                        System.IO.File.AppendAllText(@"C:\Users\GU\Desktop\Forex\Strategy\error.txt", "\r\n" + NowTime + "未能複製文字資料，行碼198");
+                        Environment.Exit(0);
+                    }
+                }
+            }
+            else //判斷剪貼簿上是沒有資料
+            {
+                do
+                {
+                    //開始複製動作
+                    hwnd = FindWindow("TradingStationIIClass", "匯圖寶2.0");
+                    hwnd1 = GetChildWindows(hwnd);
+                    hwnd2 = hwnd1[22];
+                    // 透過ShowWindowAsync還原，以及SetForegroundWindow將程式至於前景
+                    ShowWindowAsync(hwnd, 1);
+                    SetForegroundWindow(hwnd2);
+                    Thread.Sleep(200);
+                    //按下鍵盤PagetUp鍵
+                    keybd_event(PageUpKey, 0, KEYEVENTF_EXTENDEDKEY, 0);
+                    //放開鍵盤PagetUp鍵
+                    keybd_event(PageUpKey, 0, 0x02, 0);
+                    Thread.Sleep(200);
+                    //Thread.Sleep(200);
+                    //按下鍵盤下鍵
+                    keybd_event(DownArrow, 0, KEYEVENTF_EXTENDEDKEY, 0);
+                    //放開鍵盤下鍵
+                    keybd_event(DownArrow, 0, 0x02, 0);
+                    Thread.Sleep(200);
+                    keybd_event(VK_CONTROL, 0, 0, 0);
+                    keybd_event(0x43, 0, 0, 0); //Send the C key (43 is "C")
+                    keybd_event(0x43, 0, KEYEVENTF_KEYUP, 0);
+                    keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);// 'Left Control Up
+                    hwnd3 = FindWindow("#32770", "福匯亞洲交易平台II");
+                    ShowWindowAsync(hwnd3, 1);
+                    SetForegroundWindow(hwnd3);
+                    Thread.Sleep(200);
+                    //Thread.Sleep(200);
+                    //按下鍵盤Tab鍵
+                    keybd_event(TabKey, 0, KEYEVENTF_EXTENDEDKEY, 0);
+                    //放開鍵盤Tab鍵
+                    keybd_event(TabKey, 0, KEYEVENTF_KEYUP, 0);
+                    //Thread.Sleep(200);
+                    //按下鍵盤Tab鍵
+                    keybd_event(TabKey, 0, KEYEVENTF_EXTENDEDKEY, 0);
+                    //放開鍵盤Tab鍵
+                    keybd_event(TabKey, 0, KEYEVENTF_KEYUP, 0);
+                    //Thread.Sleep(200);
+                    //按下鍵盤Enter鍵
+                    keybd_event(EnterKey, 0, KEYEVENTF_EXTENDEDKEY, 0);
+                    //放開鍵盤Enter鍵
+                    keybd_event(EnterKey, 0, KEYEVENTF_KEYUP, 0);
+                    //Thread.Sleep(200);
+                    //完成複製動作
+                    CpoiedText = Clipboard.GetText();//利用GetText把文字取出
+                    StopInt += 1;
+                } while (Clipboard.GetDataObject() != null && StopInt < 6);
+                if (Clipboard.GetDataObject() != null) ;
+                {
+                    StackTrace st = new StackTrace(true);
+                    System.IO.File.AppendAllText(@"C:\Users\GU\Desktop\Forex\Strategy\error.txt", "\r\n" + NowTime + "未能複製文字資料，行碼258");
+                    Environment.Exit(0);
+                }
+            }
+
+            //將複製的小時文字分配給陣列
+            CopiedHour = CpoiedText.Split(null as string[], StringSplitOptions.RemoveEmptyEntries);
+            Thread.Sleep(150);
+
+            //如文字陣列長度非6沒有正確資料，重覆複製
+            if (CopiedHour.Length != 6)
+            { 
+                StackTrace st = new StackTrace(true);
+                System.IO.File.AppendAllText(@"C:\Users\GU\Desktop\Forex\Strategy\error.txt", "\r\n" + NowTime + "沒有複製正確的文字資料，錯誤文字資料為\"" + CpoiedText + "\"，行碼271");
+                Environment.Exit(0);
+            }
+            Thread.Sleep(150);
+
+            //取得正確小時資料
+            string HourLastString; //上一小時值的變數
+            int HourLastInt;
+            if (NowTime.Hour == 0) //判斷現時小時的上一個小時的值，如為現在小時值為零
+            {
+                HourLastString = "23";
+            }
+            else //如現時小時值非零
+            {
+                HourLastInt = NowTime.Hour - 1; //現時小時減1
+                HourLastString = HourLastInt.ToString(); //上一小時值轉換成文字
+            }
+
+            int HourLastLenght = HourLastString.Length; //上一小時的文字的長度
+            if (HourLastLenght == 1) //判斷小時值的長度，如為1則先加"0"於第一位，再加":00"於最後
+            {
+                HourLastString = HourLastString.Insert(0, "0");
+                HourLastString = HourLastString.Insert(2, ":00");
+            }
+            else //小時值的長度如為2，則加":00"於最後
+            {
+                HourLastString = HourLastString.Insert(2, ":00");
+            }
+            strIndex = CopiedHour[1].IndexOf(HourLastString); //判斷複製小時值與現時小時值是否一樣
+            Thread.Sleep(200);
+
+            //判斷小時陣列[1]值是上一小時，如是
+            if (strIndex != -1)
+            {
+                //將資料交由VBA存入Excel
+                IntPtr hwnd4 = FindWindow("XLMAIN", "XAUUSD_H1_Bid - 複製 - 複製.xlsm - Excel");
+                // 透過ShowWindowAsync還原，以及SetForegroundWindow將程式至於前景
+                ShowWindowAsync(hwnd4, 1);
+                SetForegroundWindow(hwnd4);
+                Thread.Sleep(200);
+                keybd_event(VK_CONTROL, 0, 0, 0);
+                keybd_event(QKey, 0, 0, 0); //Send the QKey
+                keybd_event(QKey, 0, KEYEVENTF_KEYUP, 0);
+                keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);// 'Left Control Up
+            }
+            else //如陣列[1]值不是上一小時
+            {
+                StackTrace st = new StackTrace(true);
+                System.IO.File.AppendAllText(@"C:\Users\GU\Desktop\Forex\Strategy\error.txt", "\r\n" + NowTime + "複製時間不是上一小時時間值，錯誤小時資料為\"" + CopiedHour[1] + "\"，行碼319");
+                Environment.Exit(0);
+            }
+
+            //Application.Exit();
+        }
+
+        /// <summary>
+        /// Returns a list of child windows
+        /// </summary>
+        /// <param name="parent">Parent of the windows to return</param>
+        /// <returns>List of child windows</returns>
+        public static List<IntPtr> GetChildWindows(IntPtr parent)
+        {
+            List<IntPtr> result = new List<IntPtr>();
+            GCHandle listHandle = GCHandle.Alloc(result);
+            try
+            {
+                EnumWindowProc childProc = new EnumWindowProc(EnumWindow);
+                EnumChildWindows(parent, childProc, GCHandle.ToIntPtr(listHandle));
+            }
+            finally
+            {
+                if (listHandle.IsAllocated)
+                    listHandle.Free();
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Callback method to be used when enumerating windows.
+        /// </summary>
+        /// <param name="handle">Handle of the next window</param>
+        /// <param name="pointer">Pointer to a GCHandle that holds a reference to the list to fill</param>
+        /// <returns>True to continue the enumeration, false to bail</returns>
+        private static bool EnumWindow(IntPtr handle, IntPtr pointer)
+        {
+            GCHandle gch = GCHandle.FromIntPtr(pointer);
+            List<IntPtr> list = gch.Target as List<IntPtr>;
+            if (list == null)
+            {
+                throw new InvalidCastException("GCHandle Target could not be cast as List<IntPtr>");
+            }
+            list.Add(handle);
+            //  You can modify this to check to see if you want to cancel the operation, then return a null here
+            return true;
+        }
+
+        /// <summary>
+        /// Delegate for the EnumChildWindows method
+        /// </summary>
+        /// <param name="hWnd">Window handle</param>
+        /// <param name="parameter">Caller-defined variable; we use it for a pointer to our list</param>
+        /// <returns>True to continue enumerating, false to bail.</returns>
+//        public delegate bool EnumWindowProc(IntPtr hWnd, IntPtr parameter);
+
+        private void button1_Click_1(object sender, EventArgs e)
+        {
+            while (true)
+            {
+                NowTime = DateTime.Now;
+                tf1 = NowTime.DayOfWeek == DayOfWeek.Saturday && NowTime.Hour >= 6 && NowTime.Hour <= 23;
+                tf2 = NowTime.DayOfWeek == DayOfWeek.Sunday;
+                tf3 = NowTime.DayOfWeek == DayOfWeek.Monday && NowTime.Hour >= 0 && NowTime.Hour <= 6;
+                tf4 = NowTime.Hour == 6;
+                tf5 = NowTime.Minute == 0 && NowTime.Minute == 0 && NowTime.Second >= 0 && NowTime.Second <= 3;
+                if (tf1 || tf2 || tf3 || tf4 || !(tf5)) //|| !(tf5)
+                {
+                    //Environment.Exit(0);
+                    Thread.Sleep(200);;
+                }
+                else
+                {
+                    getData = new Thread(GetData);
+                    getData.SetApartmentState(ApartmentState.STA);
+                    getData.Name = "GetDataFromFXCM";
+                    getData.Priority = ThreadPriority.Highest;
+                    getData.Start();
+                    Thread.Sleep(10000);
+                }
+            }
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+
+        }
+    }
+}
